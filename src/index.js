@@ -11,6 +11,13 @@ const MAX_OUTPUT = 20_000; // karakter per stdout/stderr yang dikembalikan
 const MAX_RUN_SECONDS = 85; // di bawah batas ~100 dtk proxy Cloudflare
 const MAX_TIMEOUT_MINUTES = 60; // batas sesi paket Hobby E2B
 const DEFAULT_TIMEOUT_MINUTES = 30;
+const TEMPLATE_ENVS = {
+  "node-postgres": {
+    DATABASE_URL_POSTGRES: "postgresql://dev:dev@127.0.0.1:5432/sandbox",
+    POSTGRES_ADMIN_URL: "postgresql://dev:dev@127.0.0.1:5432/postgres",
+    CI_POSTGRES_ADMIN_URL: "postgresql://dev:dev@127.0.0.1:5432/postgres",
+  },
+};
 
 const INSTRUCTIONS = [
   "Cloud E2B sandboxes managed through an MCP-compatible Worker.",
@@ -269,9 +276,14 @@ const handlers = {
       MAX_TIMEOUT_MINUTES,
       DEFAULT_TIMEOUT_MINUTES,
     );
+    const templateName = args.template ?? "base";
+    const envs = {
+      ...(TEMPLATE_ENVS[templateName] ?? {}),
+      ...(args.envs ?? {}),
+    };
     const opts = {
       timeoutMs: timeoutMinutes * 60_000,
-      envs: args.envs,
+      envs,
       metadata: { creator: "e2b-mcp" },
     };
     const failures = [];
