@@ -29,6 +29,8 @@ const INSTRUCTIONS = [
   "Cloud E2B sandboxes managed through an MCP-compatible Worker.",
   "Alur: create → run / write_file / read_file → kill.",
   "Templates: 'node-postgres' (Node 22.21.1 with PostgreSQL 16; use DATABASE_URL_POSTGRES for the sandbox database and POSTGRES_ADMIN_URL or CI_POSTGRES_ADMIN_URL for the admin database), 'docker-supabase' (Node 22.21.1 with a local Supabase stack already running: API at SUPABASE_URL, database at DATABASE_URL_SUPABASE; load anon and service keys with `set -a; . \"$SUPABASE_STATUS_ENV\"; set +a`; apply repo migrations with `supabase db push --db-url \"$DATABASE_URL_SUPABASE\"` in background mode), or 'base' for general tasks.",
+  "Private GitHub repos: GH_TOKEN is preset when configured, so clone with `gh repo clone <owner>/<repo>` and never print the token.",
+  "psql is available in node-postgres and docker-supabase.",
   "sandbox_id berawalan akun (contoh 'a:abc123'); selalu pakai ID persis seperti yang dikembalikan.",
   `Perintah foreground dibatasi ${MAX_RUN_SECONDS} detik. Untuk install/build/test panjang, pakai run dengan background=true lalu pantau log-nya.`,
   `Sandbox hidup maksimal ${MAX_TIMEOUT_MINUTES} menit; perpanjang dengan extend, dan panggil kill setelah selesai.`,
@@ -263,6 +265,18 @@ const TOOLS = [
   },
 ];
 
+function toolsFor(env) {
+  const ids = accounts(env).map((a) => a.id);
+  return TOOLS.map((tool) => {
+    if (tool.name !== "create") return tool;
+    const copy = structuredClone(tool);
+    copy.inputSchema.properties.account.enum = ["auto", ...ids];
+    copy.inputSchema.properties.account.description =
+      "Biarkan kosong (bawaan 'auto'). Isi hanya bila pengguna meminta akun tertentu.";
+    return copy;
+  });
+}
+
 const handlers = {
   async create(env, args) {
     const configured = accounts(env);
@@ -287,6 +301,10 @@ const handlers = {
       ...(TEMPLATE_ENVS[templateName] ?? {}),
       ...(args.envs ?? {}),
     };
+    if (env.GITHUB_TOKEN_SANDBOX) {
+      envs.GITHUB_TOKEN ??= env.GITHUB_TOKEN_SANDBOX;
+      envs.GH_TOKEN ??= env.GITHUB_TOKEN_SANDBOX;
+    }
     const opts = {
       timeoutMs: timeoutMinutes * 60_000,
       envs,
@@ -473,7 +491,7 @@ async function handleMessage(env, msg) {
     case "ping":
       return rpcResult(msg.id, {});
     case "tools/list":
-      return rpcResult(msg.id, { tools: TOOLS });
+      return rpcResult(msg.id, { tools: toolsFor(env) });
     case "tools/call":
       return rpcResult(
         msg.id,

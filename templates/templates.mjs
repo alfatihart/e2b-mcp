@@ -90,6 +90,7 @@ const START_SUPABASE = [
 ].join("\n");
 
 export const v1 = base()
+  .aptInstall(["postgresql-client"])
   .runCmd(
     [
       "curl -fsSL https://get.docker.com | sh",
