@@ -10,7 +10,17 @@ const SUPABASE_PG_VERSION = process.env.SUPABASE_PG_VERSION || "15.8.1.085";
 function base() {
   return Template()
     .fromUbuntuImage("24.04")
-    .aptInstall(["curl", "ca-certificates", "gnupg", "git", "jq", "unzip", "xz-utils", "build-essential", "python3"])
+    .aptInstall([
+      "curl",
+      "ca-certificates",
+      "gnupg",
+      "git",
+      "jq",
+      "unzip",
+      "xz-utils",
+      "build-essential",
+      "python3",
+    ])
     .runCmd(
       [
         `curl -fsSL https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz | tar -xJ -C /usr/local --strip-components=1`,
@@ -30,12 +40,17 @@ export const v2 = base()
   .aptInstall(["postgresql-16", "postgresql-client-16"])
   .runCmd(
     [
+      "systemctl mask postgresql.service postgresql@16-main.service || true",
+      "systemctl stop postgresql@16-main.service postgresql.service 2>/dev/null || true",
+      "pkill -u postgres -x postgres || true",
+      "for i in $(seq 1 30); do pgrep -u postgres -x postgres >/dev/null || break; sleep 1; done",
       "install -d -o postgres -g postgres -m 2775 /var/run/postgresql",
+      "sed -i 's/^ssl = on/ssl = off/' /etc/postgresql/16/main/postgresql.conf",
+      "rm -f /var/lib/postgresql/16/main/postmaster.pid",
       "pg_ctlcluster --skip-systemctl-redirect 16 main start",
       `su postgres -c "psql -v ON_ERROR_STOP=1 -c \\"CREATE ROLE dev LOGIN SUPERUSER PASSWORD 'dev'\\""`,
       'su postgres -c "createdb -O dev sandbox"',
       "pg_ctlcluster --skip-systemctl-redirect 16 main stop",
-      "rm -f /etc/systemd/system/multi-user.target.wants/postgresql.service",
     ],
     { user: "root" },
   )
@@ -78,7 +93,11 @@ export const v1 = base()
     `echo ${Buffer.from(START_SUPABASE + "\n").toString("base64")} | base64 -d > /home/user/start-supabase.sh && chmod +x /home/user/start-supabase.sh`,
   ])
   .setEnvs({
-    DATABASE_URL_SUPABASE: "postgresql://postgres:postgres@127.0.0.1:54322/postgres",
+    DATABASE_URL_SUPABASE:
+      "postgresql://postgres:postgres@127.0.0.1:54322/postgres",
     SUPABASE_URL: "http://127.0.0.1:54321",
   })
-  .setStartCmd("bash /home/user/start-supabase.sh > /tmp/start-supabase.log 2>&1", waitForFile("/tmp/sandbox-supabase-ready"));
+  .setStartCmd(
+    "bash /home/user/start-supabase.sh > /tmp/start-supabase.log 2>&1",
+    waitForFile("/tmp/sandbox-supabase-ready"),
+  );
