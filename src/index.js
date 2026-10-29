@@ -15,7 +15,7 @@ const DEFAULT_TIMEOUT_MINUTES = 30;
 const INSTRUCTIONS = [
   "Cloud E2B sandboxes managed through an MCP-compatible Worker.",
   "Alur: create → run / write_file / read_file → kill.",
-  "Templates: 'node-postgres' (Node 22.21.1 with PostgreSQL 16), 'docker-supabase' (Node 22.21.1 with a local Supabase stack), or 'base' for general tasks.",
+  "Templates: 'node-postgres' (Node 22.21.1 with PostgreSQL 16; use DATABASE_URL_POSTGRES for the sandbox database and POSTGRES_ADMIN_URL or CI_POSTGRES_ADMIN_URL for the admin database), 'docker-supabase' (Node 22.21.1 with a local Supabase stack), or 'base' for general tasks.",
   "sandbox_id berawalan akun (contoh 'a:abc123'); selalu pakai ID persis seperti yang dikembalikan.",
   `Perintah foreground dibatasi ${MAX_RUN_SECONDS} detik. Untuk install/build/test panjang, pakai run dengan background=true lalu pantau log-nya.`,
   `Sandbox hidup maksimal ${MAX_TIMEOUT_MINUTES} menit; perpanjang dengan extend, dan panggil kill setelah selesai.`,
@@ -23,14 +23,18 @@ const INSTRUCTIONS = [
 
 // ---------- util ----------
 const json = (data, status = 200, headers = {}) =>
-  new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json", ...headers } });
+  new Response(JSON.stringify(data), {
+    status,
+    headers: { "content-type": "application/json", ...headers },
+  });
 
 function safeEqual(a, b) {
   const enc = new TextEncoder();
   const x = enc.encode(a);
   const y = enc.encode(b);
   let diff = x.length ^ y.length;
-  for (let i = 0; i < Math.max(x.length, y.length); i++) diff |= (x[i] ?? 0) ^ (y[i] ?? 0);
+  for (let i = 0; i < Math.max(x.length, y.length); i++)
+    diff |= (x[i] ?? 0) ^ (y[i] ?? 0);
   return diff === 0;
 }
 
@@ -44,9 +48,10 @@ function authorized(request, env) {
 const clip = (s) =>
   typeof s === "string" && s.length > MAX_OUTPUT
     ? `${s.slice(0, MAX_OUTPUT)}\n…[dipotong, total ${s.length} karakter]`
-    : s ?? "";
+    : (s ?? "");
 
-const clamp = (n, lo, hi, def) => (Number.isFinite(n) ? Math.min(Math.max(n, lo), hi) : def);
+const clamp = (n, lo, hi, def) =>
+  Number.isFinite(n) ? Math.min(Math.max(n, lo), hi) : def;
 
 function accounts(env) {
   return [
@@ -63,13 +68,18 @@ function keyFor(env, account) {
 
 function parseId(sandboxId) {
   const m = /^([ab]):(.+)$/.exec(String(sandboxId ?? ""));
-  if (!m) throw new ToolError("sandbox_id harus berformat '<akun>:<id>', contoh 'a:abc123' (pakai ID dari create atau list).");
+  if (!m)
+    throw new ToolError(
+      "sandbox_id harus berformat '<akun>:<id>', contoh 'a:abc123' (pakai ID dari create atau list).",
+    );
   return { account: m[1], id: m[2] };
 }
 
 function isQuotaError(err) {
   if (err instanceof RateLimitError) return true;
-  return /rate limit|limit reached|quota|credit|concurren|billing|payment|\b402\b|\b429\b/i.test(String(err?.message ?? err));
+  return /rate limit|limit reached|quota|credit|concurren|billing|payment|\b402\b|\b429\b/i.test(
+    String(err?.message ?? err),
+  );
 }
 
 class ToolError extends Error {}
@@ -88,14 +98,36 @@ const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        template: { type: "string", description: "E2B template: 'node-postgres', 'docker-supabase', or the built-in 'base' template." },
-        timeout_minutes: { type: "integer", minimum: 1, maximum: MAX_TIMEOUT_MINUTES, description: `Umur sandbox, bawaan ${DEFAULT_TIMEOUT_MINUTES}.` },
-        account: { type: "string", enum: ["auto", "a", "b"], description: "Bawaan 'auto'." },
-        envs: { type: "object", additionalProperties: { type: "string" }, description: "Variabel lingkungan untuk sandbox." },
+        template: {
+          type: "string",
+          description:
+            "E2B template: 'node-postgres', 'docker-supabase', or the built-in 'base' template.",
+        },
+        timeout_minutes: {
+          type: "integer",
+          minimum: 1,
+          maximum: MAX_TIMEOUT_MINUTES,
+          description: `Umur sandbox, bawaan ${DEFAULT_TIMEOUT_MINUTES}.`,
+        },
+        account: {
+          type: "string",
+          enum: ["auto", "a", "b"],
+          description: "Bawaan 'auto'.",
+        },
+        envs: {
+          type: "object",
+          additionalProperties: { type: "string" },
+          description: "Variabel lingkungan untuk sandbox.",
+        },
       },
       additionalProperties: false,
     },
-    annotations: { title: "Buat sandbox", readOnlyHint: false, destructiveHint: false, openWorldHint: true },
+    annotations: {
+      title: "Buat sandbox",
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: true,
+    },
   },
   {
     name: "run",
@@ -105,14 +137,26 @@ const TOOLS = [
       properties: {
         sandbox_id: { type: "string" },
         command: { type: "string" },
-        cwd: { type: "string", description: "Direktori kerja, bawaan /home/user." },
-        timeout_seconds: { type: "integer", minimum: 1, maximum: MAX_RUN_SECONDS },
+        cwd: {
+          type: "string",
+          description: "Direktori kerja, bawaan /home/user.",
+        },
+        timeout_seconds: {
+          type: "integer",
+          minimum: 1,
+          maximum: MAX_RUN_SECONDS,
+        },
         background: { type: "boolean" },
       },
       required: ["sandbox_id", "command"],
       additionalProperties: false,
     },
-    annotations: { title: "Jalankan perintah", readOnlyHint: false, destructiveHint: true, openWorldHint: true },
+    annotations: {
+      title: "Jalankan perintah",
+      readOnlyHint: false,
+      destructiveHint: true,
+      openWorldHint: true,
+    },
   },
   {
     name: "read_file",
@@ -123,35 +167,70 @@ const TOOLS = [
       required: ["sandbox_id", "path"],
       additionalProperties: false,
     },
-    annotations: { title: "Baca file", readOnlyHint: true, openWorldHint: false },
+    annotations: {
+      title: "Baca file",
+      readOnlyHint: true,
+      openWorldHint: false,
+    },
   },
   {
     name: "write_file",
-    description: "Tulis (timpa) file teks di sandbox. Direktori induk dibuat otomatis.",
+    description:
+      "Tulis (timpa) file teks di sandbox. Direktori induk dibuat otomatis.",
     inputSchema: {
       type: "object",
-      properties: { sandbox_id: { type: "string" }, path: { type: "string" }, content: { type: "string" } },
+      properties: {
+        sandbox_id: { type: "string" },
+        path: { type: "string" },
+        content: { type: "string" },
+      },
       required: ["sandbox_id", "path", "content"],
       additionalProperties: false,
     },
-    annotations: { title: "Tulis file", readOnlyHint: false, destructiveHint: true, openWorldHint: false },
+    annotations: {
+      title: "Tulis file",
+      readOnlyHint: false,
+      destructiveHint: true,
+      openWorldHint: false,
+    },
   },
   {
     name: "list",
-    description: "Daftar sandbox yang sedang hidup di semua akun yang dikonfigurasi.",
-    inputSchema: { type: "object", properties: {}, additionalProperties: false },
-    annotations: { title: "Daftar sandbox", readOnlyHint: true, openWorldHint: false },
+    description:
+      "Daftar sandbox yang sedang hidup di semua akun yang dikonfigurasi.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+      additionalProperties: false,
+    },
+    annotations: {
+      title: "Daftar sandbox",
+      readOnlyHint: true,
+      openWorldHint: false,
+    },
   },
   {
     name: "extend",
     description: `Atur ulang sisa umur sandbox (menit dari sekarang, maksimal ${MAX_TIMEOUT_MINUTES}).`,
     inputSchema: {
       type: "object",
-      properties: { sandbox_id: { type: "string" }, timeout_minutes: { type: "integer", minimum: 1, maximum: MAX_TIMEOUT_MINUTES } },
+      properties: {
+        sandbox_id: { type: "string" },
+        timeout_minutes: {
+          type: "integer",
+          minimum: 1,
+          maximum: MAX_TIMEOUT_MINUTES,
+        },
+      },
       required: ["sandbox_id", "timeout_minutes"],
       additionalProperties: false,
     },
-    annotations: { title: "Perpanjang sandbox", readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+    annotations: {
+      title: "Perpanjang sandbox",
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
   },
   {
     name: "kill",
@@ -162,20 +241,39 @@ const TOOLS = [
       required: ["sandbox_id"],
       additionalProperties: false,
     },
-    annotations: { title: "Hapus sandbox", readOnlyHint: false, destructiveHint: true, openWorldHint: false },
+    annotations: {
+      title: "Hapus sandbox",
+      readOnlyHint: false,
+      destructiveHint: true,
+      openWorldHint: false,
+    },
   },
 ];
 
 const handlers = {
   async create(env, args) {
     const configured = accounts(env);
-    if (configured.length === 0) throw new ToolError("Belum ada E2B_API_KEY_A/B yang diisi.");
+    if (configured.length === 0)
+      throw new ToolError("Belum ada E2B_API_KEY_A/B yang diisi.");
     const wanted = args.account ?? "auto";
-    const order = wanted === "auto" ? configured : configured.filter((a) => a.id === wanted);
-    if (order.length === 0) throw new ToolError(`Akun '${wanted}' tidak dikonfigurasi.`);
+    const order =
+      wanted === "auto"
+        ? configured
+        : configured.filter((a) => a.id === wanted);
+    if (order.length === 0)
+      throw new ToolError(`Akun '${wanted}' tidak dikonfigurasi.`);
 
-    const timeoutMinutes = clamp(args.timeout_minutes, 1, MAX_TIMEOUT_MINUTES, DEFAULT_TIMEOUT_MINUTES);
-    const opts = { timeoutMs: timeoutMinutes * 60_000, envs: args.envs, metadata: { creator: "e2b-mcp" } };
+    const timeoutMinutes = clamp(
+      args.timeout_minutes,
+      1,
+      MAX_TIMEOUT_MINUTES,
+      DEFAULT_TIMEOUT_MINUTES,
+    );
+    const opts = {
+      timeoutMs: timeoutMinutes * 60_000,
+      envs: args.envs,
+      metadata: { creator: "e2b-mcp" },
+    };
     const failures = [];
 
     for (const acc of order) {
@@ -188,14 +286,18 @@ const handlers = {
           account: acc.id,
           template: args.template ?? "base",
           timeout_minutes: timeoutMinutes,
-          note: failures.length ? `Akun sebelumnya gagal: ${failures.join("; ")}` : undefined,
+          note: failures.length
+            ? `Akun sebelumnya gagal: ${failures.join("; ")}`
+            : undefined,
         };
       } catch (err) {
         failures.push(`${acc.id}: ${err?.message ?? err}`);
         if (wanted !== "auto" || !isQuotaError(err)) throw err;
       }
     }
-    throw new ToolError(`Semua akun gagal membuat sandbox: ${failures.join("; ")}`);
+    throw new ToolError(
+      `Semua akun gagal membuat sandbox: ${failures.join("; ")}`,
+    );
   },
 
   async run(env, args) {
@@ -205,7 +307,10 @@ const handlers = {
     if (args.background) {
       const job = `job-${Date.now().toString(36)}`;
       const dir = "/tmp/e2b-mcp-jobs";
-      await sbx.files.write(`${dir}/${job}.sh`, `cd ${JSON.stringify(cwd)} || exit 1\n( ${args.command}\n)\necho $? > ${dir}/${job}.exit\n`);
+      await sbx.files.write(
+        `${dir}/${job}.sh`,
+        `cd ${JSON.stringify(cwd)} || exit 1\n( ${args.command}\n)\necho $? > ${dir}/${job}.exit\n`,
+      );
       const r = await sbx.commands.run(
         `setsid nohup bash ${dir}/${job}.sh > ${dir}/${job}.log 2>&1 < /dev/null & echo $!`,
         { timeoutMs: 15_000 },
@@ -220,13 +325,22 @@ const handlers = {
       };
     }
 
-    const timeoutMs = clamp(args.timeout_seconds, 1, MAX_RUN_SECONDS, 60) * 1000;
+    const timeoutMs =
+      clamp(args.timeout_seconds, 1, MAX_RUN_SECONDS, 60) * 1000;
     try {
       const r = await sbx.commands.run(args.command, { cwd, timeoutMs });
-      return { exit_code: r.exitCode, stdout: clip(r.stdout), stderr: clip(r.stderr) };
+      return {
+        exit_code: r.exitCode,
+        stdout: clip(r.stdout),
+        stderr: clip(r.stderr),
+      };
     } catch (err) {
       if (err instanceof CommandExitError) {
-        return { exit_code: err.exitCode, stdout: clip(err.stdout), stderr: clip(err.stderr) };
+        return {
+          exit_code: err.exitCode,
+          stdout: clip(err.stdout),
+          stderr: clip(err.stderr),
+        };
       }
       throw err;
     }
@@ -241,7 +355,10 @@ const handlers = {
   async write_file(env, args) {
     const sbx = await connect(env, args.sandbox_id);
     await sbx.files.write(args.path, args.content);
-    return { path: args.path, bytes: new TextEncoder().encode(args.content).length };
+    return {
+      path: args.path,
+      bytes: new TextEncoder().encode(args.content).length,
+    };
   },
 
   async list(env) {
@@ -268,8 +385,15 @@ const handlers = {
 
   async extend(env, args) {
     const { account, id } = parseId(args.sandbox_id);
-    const minutes = clamp(args.timeout_minutes, 1, MAX_TIMEOUT_MINUTES, DEFAULT_TIMEOUT_MINUTES);
-    await Sandbox.setTimeout(id, minutes * 60_000, { apiKey: keyFor(env, account) });
+    const minutes = clamp(
+      args.timeout_minutes,
+      1,
+      MAX_TIMEOUT_MINUTES,
+      DEFAULT_TIMEOUT_MINUTES,
+    );
+    await Sandbox.setTimeout(id, minutes * 60_000, {
+      apiKey: keyFor(env, account),
+    });
     return { sandbox_id: args.sandbox_id, timeout_minutes_from_now: minutes };
   },
 
@@ -282,18 +406,32 @@ const handlers = {
 
 async function callTool(env, name, args) {
   const handler = handlers[name];
-  if (!handler) return { content: [{ type: "text", text: `Tool tidak dikenal: ${name}` }], isError: true };
+  if (!handler)
+    return {
+      content: [{ type: "text", text: `Tool tidak dikenal: ${name}` }],
+      isError: true,
+    };
   try {
     const result = await handler(env, args ?? {});
-    return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }], structuredContent: result };
+    return {
+      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+      structuredContent: result,
+    };
   } catch (err) {
-    return { content: [{ type: "text", text: `Gagal: ${err?.message ?? err}` }], isError: true };
+    return {
+      content: [{ type: "text", text: `Gagal: ${err?.message ?? err}` }],
+      isError: true,
+    };
   }
 }
 
 // ---------- JSON-RPC / MCP ----------
 const rpcResult = (id, result) => ({ jsonrpc: "2.0", id, result });
-const rpcError = (id, code, message) => ({ jsonrpc: "2.0", id, error: { code, message } });
+const rpcError = (id, code, message) => ({
+  jsonrpc: "2.0",
+  id,
+  error: { code, message },
+});
 
 async function handleMessage(env, msg) {
   if (!msg || msg.jsonrpc !== "2.0" || typeof msg.method !== "string") {
@@ -306,7 +444,9 @@ async function handleMessage(env, msg) {
     case "initialize": {
       const requested = msg.params?.protocolVersion;
       return rpcResult(msg.id, {
-        protocolVersion: PROTOCOLS.includes(requested) ? requested : PROTOCOLS[0],
+        protocolVersion: PROTOCOLS.includes(requested)
+          ? requested
+          : PROTOCOLS[0],
         capabilities: { tools: { listChanged: false } },
         serverInfo: SERVER_INFO,
         instructions: INSTRUCTIONS,
@@ -317,14 +457,21 @@ async function handleMessage(env, msg) {
     case "tools/list":
       return rpcResult(msg.id, { tools: TOOLS });
     case "tools/call":
-      return rpcResult(msg.id, await callTool(env, msg.params?.name, msg.params?.arguments));
+      return rpcResult(
+        msg.id,
+        await callTool(env, msg.params?.name, msg.params?.arguments),
+      );
     default:
       return rpcError(msg.id, -32601, `Method not found: ${msg.method}`);
   }
 }
 
 async function handleMcp(request, env) {
-  if (request.method !== "POST") return new Response("Method Not Allowed", { status: 405, headers: { allow: "POST" } });
+  if (request.method !== "POST")
+    return new Response("Method Not Allowed", {
+      status: 405,
+      headers: { allow: "POST" },
+    });
 
   let body;
   try {
@@ -335,7 +482,9 @@ async function handleMcp(request, env) {
 
   const batch = Array.isArray(body);
   request.__rpcMethods = (batch ? body : [body]).map((m) => m?.method);
-  const responses = (await Promise.all((batch ? body : [body]).map((m) => handleMessage(env, m)))).filter(Boolean);
+  const responses = (
+    await Promise.all((batch ? body : [body]).map((m) => handleMessage(env, m)))
+  ).filter(Boolean);
   if (responses.length === 0) return new Response(null, { status: 202 });
   return json(batch ? responses : responses[0]);
 }
@@ -344,17 +493,25 @@ async function handleMcp(request, env) {
 async function probe(env, account) {
   const steps = [];
   const t0 = Date.now();
-  const mark = (step, extra = {}) => steps.push({ step, ms: Date.now() - t0, ...extra });
+  const mark = (step, extra = {}) =>
+    steps.push({ step, ms: Date.now() - t0, ...extra });
   let sbx;
   let ok = false;
   try {
-    sbx = await Sandbox.create({ apiKey: keyFor(env, account), timeoutMs: 120_000 });
+    sbx = await Sandbox.create({
+      apiKey: keyFor(env, account),
+      timeoutMs: 120_000,
+    });
     mark("create", { sandboxId: sbx.sandboxId });
-    const r = await sbx.commands.run("echo ok && uname -a", { timeoutMs: 30_000 });
+    const r = await sbx.commands.run("echo ok && uname -a", {
+      timeoutMs: 30_000,
+    });
     mark("command", { exitCode: r.exitCode, stdout: r.stdout });
     const content = `probe ${new Date().toISOString()}`;
     await sbx.files.write("/tmp/probe.txt", content);
-    mark("file", { match: (await sbx.files.read("/tmp/probe.txt")) === content });
+    mark("file", {
+      match: (await sbx.files.read("/tmp/probe.txt")) === content,
+    });
     ok = true;
   } catch (err) {
     mark("error", { message: String(err?.message ?? err) });
@@ -375,16 +532,18 @@ export default {
     const started = Date.now();
     const response = await route(request, env, url);
     // Log diagnostik ringkas (tanpa header Authorization / isi body). Lihat dengan `npx wrangler tail`.
-    console.log(JSON.stringify({
-      path: url.pathname,
-      method: request.method,
-      status: response.status,
-      ms: Date.now() - started,
-      accept: request.headers.get("accept"),
-      mcpProtocolVersion: request.headers.get("mcp-protocol-version"),
-      rpc: request.__rpcMethods,
-      ua: request.headers.get("user-agent"),
-    }));
+    console.log(
+      JSON.stringify({
+        path: url.pathname,
+        method: request.method,
+        status: response.status,
+        ms: Date.now() - started,
+        accept: request.headers.get("accept"),
+        mcpProtocolVersion: request.headers.get("mcp-protocol-version"),
+        rpc: request.__rpcMethods,
+        ua: request.headers.get("user-agent"),
+      }),
+    );
     return response;
   },
 };
@@ -392,12 +551,15 @@ export default {
 async function route(request, env, url) {
   if (url.pathname === "/health") return new Response("ok");
   // Server ini tidak memakai OAuth: discovery OAuth dijawab 404 tanpa auth.
-  if (url.pathname.startsWith("/.well-known/")) return json({ error: "not found" }, 404);
+  if (url.pathname.startsWith("/.well-known/"))
+    return json({ error: "not found" }, 404);
   if (!authorized(request, env)) return json({ error: "unauthorized" }, 401);
-  if (url.pathname === "/mcp" || url.pathname === "/mcp/") return handleMcp(request, env);
+  if (url.pathname === "/mcp" || url.pathname === "/mcp/")
+    return handleMcp(request, env);
   if (url.pathname === "/probe" && request.method === "POST") {
     const account = (url.searchParams.get("account") ?? "a").toLowerCase();
-    if (!["a", "b"].includes(account)) return json({ error: "account harus a atau b" }, 400);
+    if (!["a", "b"].includes(account))
+      return json({ error: "account harus a atau b" }, 400);
     return probe(env, account);
   }
   return json({ error: "not found" }, 404);

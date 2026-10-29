@@ -57,6 +57,7 @@ export const v2 = base()
   .setEnvs({
     DATABASE_URL_POSTGRES: "postgresql://dev:dev@127.0.0.1:5432/sandbox",
     POSTGRES_ADMIN_URL: "postgresql://dev:dev@127.0.0.1:5432/postgres",
+    CI_POSTGRES_ADMIN_URL: "postgresql://dev:dev@127.0.0.1:5432/postgres",
   })
   .setStartCmd(
     "sudo install -d -o postgres -g postgres -m 2775 /var/run/postgresql && sudo -u postgres /usr/lib/postgresql/16/bin/postgres -D /var/lib/postgresql/16/main -c config_file=/etc/postgresql/16/main/postgresql.conf -c listen_addresses=127.0.0.1",
