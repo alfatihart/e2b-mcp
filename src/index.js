@@ -17,12 +17,17 @@ const TEMPLATE_ENVS = {
     POSTGRES_ADMIN_URL: "postgresql://dev:dev@127.0.0.1:5432/postgres",
     CI_POSTGRES_ADMIN_URL: "postgresql://dev:dev@127.0.0.1:5432/postgres",
   },
+  "docker-supabase": {
+    DATABASE_URL_SUPABASE: "postgresql://postgres:postgres@127.0.0.1:54322/postgres",
+    SUPABASE_URL: "http://127.0.0.1:54321",
+    SUPABASE_STATUS_ENV: "/home/user/sandbox-supabase/status.env",
+  },
 };
 
 const INSTRUCTIONS = [
   "Cloud E2B sandboxes managed through an MCP-compatible Worker.",
   "Alur: create → run / write_file / read_file → kill.",
-  "Templates: 'node-postgres' (Node 22.21.1 with PostgreSQL 16; use DATABASE_URL_POSTGRES for the sandbox database and POSTGRES_ADMIN_URL or CI_POSTGRES_ADMIN_URL for the admin database), 'docker-supabase' (Node 22.21.1 with a local Supabase stack), or 'base' for general tasks.",
+  "Templates: 'node-postgres' (Node 22.21.1 with PostgreSQL 16; use DATABASE_URL_POSTGRES for the sandbox database and POSTGRES_ADMIN_URL or CI_POSTGRES_ADMIN_URL for the admin database), 'docker-supabase' (Node 22.21.1 with a local Supabase stack already running: API at SUPABASE_URL, database at DATABASE_URL_SUPABASE; load anon and service keys with `set -a; . \"$SUPABASE_STATUS_ENV\"; set +a`; apply repo migrations with `supabase db push --db-url \"$DATABASE_URL_SUPABASE\"` in background mode), or 'base' for general tasks.",
   "sandbox_id berawalan akun (contoh 'a:abc123'); selalu pakai ID persis seperti yang dikembalikan.",
   `Perintah foreground dibatasi ${MAX_RUN_SECONDS} detik. Untuk install/build/test panjang, pakai run dengan background=true lalu pantau log-nya.`,
   `Sandbox hidup maksimal ${MAX_TIMEOUT_MINUTES} menit; perpanjang dengan extend, dan panggil kill setelah selesai.`,

@@ -66,14 +66,24 @@ export const v2 = base()
 
 // V1 (Supabase): Docker + Supabase CLI, stack minimal (db, auth, storage, rest, kong) sudah berjalan
 // saat sandbox dibuat, karena E2B menyimpan snapshot setelah start command siap.
+const SUPABASE_DIR = "/home/user/sandbox-supabase";
+const SUPABASE_EXCLUDE = "realtime,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor";
+
 const START_SUPABASE = [
-  "set -e",
-  "(sudo systemctl start docker 2>/dev/null || (sudo dockerd > /tmp/dockerd.log 2>&1 &))",
-  "for i in $(seq 1 60); do sudo docker info >/dev/null 2>&1 && break; sleep 1; done",
+  "set -euo pipefail",
+  'echo "[start] menyalakan Docker"',
+  "if ! sudo docker info >/dev/null 2>&1; then",
+  "  sudo systemctl start docker 2>&1 || { echo '[start] systemctl gagal, pakai dockerd manual'; sudo dockerd > /tmp/dockerd.log 2>&1 & }",
+  "fi",
+  "for i in $(seq 1 90); do sudo docker info >/dev/null 2>&1 && break; sleep 1; done",
+  "sudo docker info >/dev/null 2>&1 || { echo '[start] Docker tidak siap'; sudo tail -n 50 /tmp/dockerd.log 2>/dev/null || true; exit 1; }",
+  'echo "[start] jumlah dockerd: $(pgrep -c -x dockerd || true)"',
   "sudo chmod 666 /var/run/docker.sock",
-  "cd /home/user/sandbox-supabase",
-  "supabase start -x realtime,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor",
-  "supabase status -o env > /home/user/sandbox-supabase/status.env",
+  `cd ${SUPABASE_DIR}`,
+  'echo "[start] supabase start"',
+  `supabase start -x ${SUPABASE_EXCLUDE}`,
+  `supabase status -o env > ${SUPABASE_DIR}/status.env`,
+  'echo "[start] Supabase siap"',
   "touch /tmp/sandbox-supabase-ready",
   "sleep infinity",
 ].join("\n");
@@ -82,6 +92,10 @@ export const v1 = base()
   .runCmd(
     [
       "curl -fsSL https://get.docker.com | sh",
+      "usermod -aG docker user",
+      "(systemctl start docker 2>&1 || (dockerd > /tmp/dockerd-build.log 2>&1 &))",
+      "for i in $(seq 1 90); do docker info >/dev/null 2>&1 && break; sleep 1; done",
+      "docker run --rm hello-world",
       `curl -fsSL https://github.com/supabase/cli/releases/download/v${SUPABASE_CLI_VERSION}/supabase_linux_amd64.tar.gz | tar -xz -C /usr/local/bin supabase`,
       "supabase --version",
     ],
@@ -94,11 +108,11 @@ export const v1 = base()
     `echo ${Buffer.from(START_SUPABASE + "\n").toString("base64")} | base64 -d > /home/user/start-supabase.sh && chmod +x /home/user/start-supabase.sh`,
   ])
   .setEnvs({
-    DATABASE_URL_SUPABASE:
-      "postgresql://postgres:postgres@127.0.0.1:54322/postgres",
+    DATABASE_URL_SUPABASE: "postgresql://postgres:postgres@127.0.0.1:54322/postgres",
     SUPABASE_URL: "http://127.0.0.1:54321",
+    SUPABASE_STATUS_ENV: `${SUPABASE_DIR}/status.env`,
   })
   .setStartCmd(
-    "bash /home/user/start-supabase.sh > /tmp/start-supabase.log 2>&1",
+    "bash -c 'set -o pipefail; bash /home/user/start-supabase.sh 2>&1 | tee /tmp/start-supabase.log'",
     waitForFile("/tmp/sandbox-supabase-ready"),
   );
