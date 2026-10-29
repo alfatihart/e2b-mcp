@@ -67,7 +67,8 @@ export const v2 = base()
 // V1 (Supabase): Docker + Supabase CLI, stack minimal (db, auth, storage, rest, kong) sudah berjalan
 // saat sandbox dibuat, karena E2B menyimpan snapshot setelah start command siap.
 const SUPABASE_DIR = "/home/user/sandbox-supabase";
-const SUPABASE_EXCLUDE = "realtime,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor";
+const SUPABASE_EXCLUDE =
+  "realtime,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor";
 
 const START_SUPABASE = [
   "set -euo pipefail",
@@ -108,7 +109,8 @@ export const v1 = base()
     `echo ${Buffer.from(START_SUPABASE + "\n").toString("base64")} | base64 -d > /home/user/start-supabase.sh && chmod +x /home/user/start-supabase.sh`,
   ])
   .setEnvs({
-    DATABASE_URL_SUPABASE: "postgresql://postgres:postgres@127.0.0.1:54322/postgres",
+    DATABASE_URL_SUPABASE:
+      "postgresql://postgres:postgres@127.0.0.1:54322/postgres",
     SUPABASE_URL: "http://127.0.0.1:54321",
     SUPABASE_STATUS_ENV: `${SUPABASE_DIR}/status.env`,
   })

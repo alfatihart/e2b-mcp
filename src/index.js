@@ -18,7 +18,8 @@ const TEMPLATE_ENVS = {
     CI_POSTGRES_ADMIN_URL: "postgresql://dev:dev@127.0.0.1:5432/postgres",
   },
   "docker-supabase": {
-    DATABASE_URL_SUPABASE: "postgresql://postgres:postgres@127.0.0.1:54322/postgres",
+    DATABASE_URL_SUPABASE:
+      "postgresql://postgres:postgres@127.0.0.1:54322/postgres",
     SUPABASE_URL: "http://127.0.0.1:54321",
     SUPABASE_STATUS_ENV: "/home/user/sandbox-supabase/status.env",
   },
