@@ -1,0 +1,30 @@
+node_modules/
+dist/
+build/
+coverage/
+
+# Cloudflare Wrangler
+.wrangler/
+.dev.vars
+wrangler.jsonc
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# TypeScript
+*.tsbuildinfo
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

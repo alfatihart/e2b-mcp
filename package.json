@@ -1,0 +1,17 @@
+{
+  "name": "e2b-mcp",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "check": "wrangler deploy --dry-run --outdir dist",
+    "tail": "wrangler tail",
+    "build:templates": "node templates/build.mjs"
+  },
+  "dependencies": {
+    "e2b": "2.56.0"
+  },
+  "devDependencies": {
+    "wrangler": "4.151.0"
+  }
+}
