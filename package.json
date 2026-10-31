@@ -2,6 +2,7 @@
   "name": "e2b-mcp",
   "private": true,
   "type": "module",
+  "license": "Apache-2.0",
   "scripts": {
     "deploy": "wrangler deploy",
     "check": "wrangler deploy --dry-run --outdir dist",
